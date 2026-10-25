@@ -1,7 +1,22 @@
-import React from 'react'
+import {useContext} from 'react'
+import Sidebar from './components/Sidebar'
+import Player from './components/Player'
+import Display from './components/Display'
+import { PlayerContext } from './context/PlayerContext'
+
 
 export default function App() {
+
+  const {audioRef, track} = useContext(PlayerContext)
+
   return (
-    <h1 className="text-red-500">App</h1>
+    <div className='h-screen bg-black'>
+      <div className='h-[90%] flex'>
+        <Sidebar />
+        <Display />
+        <audio ref={audioRef} src={track.file} preload='auto'></audio>
+      </div>
+      <Player />
+    </div>
   )
 }
