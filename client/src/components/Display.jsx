@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom'
 import DisplayHome from './DisplayHome'
 import DisplayAlbum from './DisplayAlbum'
 import {albumsData} from '../assets/assets'
+import Library from './Library'
 
 
 export default function Display() {
@@ -29,6 +30,7 @@ export default function Display() {
         <Routes>
             <Route path='/' element={<DisplayHome/>} />
             <Route path='/album/:id' element={<DisplayAlbum/>} />
+            <Route path='/Library' element={<Library/>} />
         </Routes>
     </div>
   )

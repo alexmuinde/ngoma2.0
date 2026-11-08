@@ -11,77 +11,122 @@ const PlayerContextProvider = (props) => {
 
     const [track, setTrack] = useState(songsData[0])
     const [playStatus, setPlayStatus] = useState(false)
+    const [isShuffle, setIsShuffle] = useState(false)
+    const [queue, setQueue] = useState(songsData)
+    
     const [time, setTime] = useState({
-        currentTime: {
-            second: 0,
-            minute: 0
-        },
-        totalTime: {
-            second: 0,
-            minute: 0
-        }
+        currentTime: { second: 0, minute: 0 },
+        totalTime: { second: 0, minute: 0 }
     })
 
     const play = () => {
-        audioRef.current.play()
-        setPlayStatus(true)
+        if (audioRef.current) {
+            audioRef.current.play()
+            setPlayStatus(true)
+        }
     }
 
     const pause = () => {
-        audioRef.current.pause()
-        setPlayStatus(false)
+        if (audioRef.current) {
+            audioRef.current.pause()
+            setPlayStatus(false)
+        }
     }
 
-    const playWithId = async (id) => {
-        await setTrack(songsData[id])
-        await audioRef.current.play()
-        setPlayStatus(true)
+    // Handles both built-in songs and local device songs seamlessly
+    const playWithId = async (songOrId, customQueue = null) => {
+        let selectedTrack;
+        
+        if (customQueue) {
+            setQueue(customQueue)
+        }
+
+        if (typeof songOrId === 'object' && songOrId !== null) {
+            selectedTrack = songOrId
+        } else {
+            selectedTrack = queue[songOrId] || songsData[songOrId]
+        }
+
+        if (selectedTrack) {
+            setTrack(selectedTrack)
+            
+            // Wait a split second for React to update the audio src attribute, then play
+            setTimeout(async () => {
+                if (audioRef.current) {
+                    try {
+                        await audioRef.current.play()
+                        setPlayStatus(true)
+                    } catch (error) {
+                        console.error("Playback failed:", error)
+                    }
+                }
+            }, 100)
+        }
+    }
+
+    const toggleShuffle = () => {
+        setIsShuffle(!isShuffle)
     }
 
     const previous = async () => {
-        if(track.id>0){
-            await setTrack(songsData[track.id-1])
-            await audioRef.current.play()
-            setPlayStatus(true)
+        const currentIndex = queue.findIndex(item => item.id === (track.id ?? track.name))
+        if (currentIndex > 0) {
+            playWithId(queue[currentIndex - 1])
         }
     }
 
     const next = async () => {
-        if(track.id < songsData.length-1){
-            await setTrack(songsData[track.id+1])
-            await audioRef.current.play()
-            setPlayStatus(true)
+        if (isShuffle) {
+            const randomIndex = Math.floor(Math.random() * queue.length)
+            playWithId(queue[randomIndex])
+        } else {
+            const currentIndex = queue.findIndex(item => item.id === (track.id ?? track.name))
+            if (currentIndex !== -1 && currentIndex < queue.length - 1) {
+                playWithId(queue[currentIndex + 1])
+            }
         }
     }
 
     const seekSong = async (e) => {
-        audioRef.current.currentTime = ((e.nativeEvent.offsetX / seekBg.current.offsetWidth)*audioRef.current.duration)
-       
+        if (audioRef.current && seekBg.current) {
+            audioRef.current.currentTime = ((e.nativeEvent.offsetX / seekBg.current.offsetWidth) * audioRef.current.duration)
+        }
     }
     
     useEffect(() => {
-        setTimeout(() => {
-            audioRef.current.ontimeupdate = () => {
-                seekBar.current.style.width = (Math.floor(audioRef.current.currentTime/audioRef.current.duration*100))+"%"
-                setTime({
-                    currentTime: {
-                        second: Math.floor(audioRef.current.currentTime % 60),
-                        minute: Math.floor(audioRef.current.currentTime / 60)
-                    },
-                    totalTime: {
-                        second: Math.floor(audioRef.current.duration % 60),
-                        minute: Math.floor(audioRef.current.duration / 60)
+        const timer = setTimeout(() => {
+            if (audioRef.current) {
+                audioRef.current.ontimeupdate = () => {
+                    if (audioRef.current.duration) {
+                        seekBar.current.style.width = (Math.floor(audioRef.current.currentTime / audioRef.current.duration * 100)) + "%"
+                        setTime({
+                            currentTime: {
+                                second: Math.floor(audioRef.current.currentTime % 60),
+                                minute: Math.floor(audioRef.current.currentTime / 60)
+                            },
+                            totalTime: {
+                                second: Math.floor(audioRef.current.duration % 60) || 0,
+                                minute: Math.floor(audioRef.current.duration / 60) || 0
+                            }
+                        })
                     }
-                })
+                }
+
+                audioRef.current.onended = () => {
+                    next()
+                }
             }
-        }, 1000)
-    }, [audioRef])
+        }, 500)
 
-    
+        return () => clearTimeout(timer)
+    }, [track, queue, isShuffle])
 
-    const contextValue = {audioRef, seekBg, seekBar, 
+    const contextValue = {
+        audioRef, seekBg, seekBar, 
         track, setTrack, playStatus, setPlayStatus, time, setTime, 
-        play, pause, playWithId, previous, next, seekSong }
+        play, pause, playWithId, previous, next, seekSong, 
+        isShuffle, toggleShuffle, setQueue
+    }
 
     return (
         <PlayerContext.Provider value={contextValue}>
